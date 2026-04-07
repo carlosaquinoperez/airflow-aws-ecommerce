@@ -1,0 +1,15 @@
+# Credentials and Secrets
+.env
+
+# Data files (Never upload large datasets to GitHub)
+data/
+
+# Python compiled files
+__pycache__/
+*.pyc
+
+# Terraform local state (Only if you run terraform locally)
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+.terraform.lock.hcl
