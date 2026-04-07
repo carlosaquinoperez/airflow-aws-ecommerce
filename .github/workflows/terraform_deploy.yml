@@ -1,0 +1,43 @@
+# .github/workflows/terraform_deploy.yml
+
+name: 'Terraform Infrastructure Deployment'
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**' # Only trigger if files in the terraform folder change
+
+env:
+  # Using GitHub Secrets for secure AWS authentication
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_REGION: 'us-east-1'
+
+jobs:
+  terraform_apply:
+    name: 'Terraform Plan & Apply'
+    runs-on: ubuntu-latest
+
+    # Set the working directory to our terraform folder
+    defaults:
+      run:
+        working-directory: ./terraform
+
+    steps:
+      # Step 1: Download the repository code to the temporary GitHub server
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Step 2: Automatically install the latest version of Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # Step 3: Initialize the Terraform environment (downloads AWS providers)
+      - name: Terraform Init
+        run: terraform init
+
+      # Step 4: Automatically apply the changes to AWS without manual confirmation
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
