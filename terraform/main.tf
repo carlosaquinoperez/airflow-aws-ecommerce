@@ -1,6 +1,12 @@
 # terraform/main.tf
 
 terraform {
+  backend "s3" {
+    bucket = "ecommerce-tfstate-2026"
+    key    = "terraform.tfstate"
+    region = "us-east-1"
+  }
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
