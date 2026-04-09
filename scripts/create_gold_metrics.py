@@ -27,10 +27,9 @@ silver_df = spark.read.format("delta").load(silver_path)
 gold_metrics_df = silver_df.groupBy("order_status") \
                            .agg(count("order_id").alias("total_orders"))
 
-# 4. Load: Write to Gold Layer
-# We use overwrite because business metrics are usually fully recalculated daily
-gold_metrics_df.write.mode("overwrite") \
-               .format("parquet") \
+# 4. Load: Write to Gold Layer (Delta Lake)
+gold_metrics_df.write.format("delta") \
+               .mode("overwrite") \
                .save(gold_path)
 
 print("Gold metrics successfully calculated and saved.")
