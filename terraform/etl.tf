@@ -53,6 +53,8 @@ resource "aws_glue_job" "bronze_to_silver" {
     "--JOB_NAME"      = "ecommerce_bronze_to_silver_job"
     "--BRONZE_BUCKET" = aws_s3_bucket.bronze.bucket
     "--SILVER_BUCKET" = aws_s3_bucket.silver.bucket
+    "--datalake-formats" = "delta"
+    "--conf"             = "spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension --conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog"
   }
 
   glue_version      = "4.0"

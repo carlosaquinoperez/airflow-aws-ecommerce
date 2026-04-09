@@ -3,12 +3,13 @@ import boto3
 from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.providers.amazon.aws.operators.glue import GlueJobOperator
 
 # ------------------------------------------------------------------------------
 # CONFIGURATION
 # ------------------------------------------------------------------------------
-# In a real enterprise setup, this bucket name would be fetched from Airflow Variables
-BRONZE_BUCKET_NAME = 'ecommerce-bronze-arriving-tapir' 
+# Updated to your new dynamically generated bucket
+BRONZE_BUCKET_NAME = 'ecommerce-bronze-allowing-amoeba' 
 LOCAL_FILE_PATH = '/opt/airflow/data/olist_orders_dataset.csv'
 S3_OBJECT_KEY = f"raw/orders/ingestion_date={datetime.now().strftime('%Y-%m-%d')}/olist_orders.csv"
 
@@ -36,7 +37,6 @@ def check_local_file(**kwargs):
 
 def upload_to_s3(**kwargs):
     """Uploads the local CSV file to the AWS S3 Bronze Layer using Boto3."""
-    # Boto3 automatically picks up AWS credentials from the environment variables
     s3_client = boto3.client('s3')
     
     print(f"Starting upload to s3://{BRONZE_BUCKET_NAME}/{S3_OBJECT_KEY}")
@@ -47,12 +47,12 @@ def upload_to_s3(**kwargs):
 # ORCHESTRATION
 # ------------------------------------------------------------------------------
 with DAG(
-    'ecommerce_ingestion_bronze',
+    'ecommerce_ingestion_bronze_to_silver',
     default_args=default_args,
-    description='Ingests raw E-commerce CSV data into S3 Bronze Layer',
+    description='Ingests raw CSV to Bronze, then triggers Glue to transform to Silver Parquet',
     schedule_interval='@daily',
     catchup=False,
-    tags=['ecommerce', 'ingestion', 'bronze']
+    tags=['ecommerce', 'ingestion', 'bronze', 'silver']
 ) as dag:
 
     task_check_file = PythonOperator(
@@ -65,5 +65,16 @@ with DAG(
         python_callable=upload_to_s3
     )
 
-    # Define the execution order
-    task_check_file >> task_upload_s3
+    # NEW TASK: Trigger the AWS Glue Job
+    task_transform_silver = GlueJobOperator(
+        task_id='transform_bronze_to_silver_parquet',
+        job_name='ecommerce_bronze_to_silver_job',
+        # wait_for_completion pauses the Airflow task until AWS says the job is done
+        wait_for_completion=True, 
+        region_name='us-east-1',
+        # We pass the IAM role dynamically. Replace the suffix if your role name changed.
+        iam_role_name='ecommerce_glue_role_allowing-amoeba' 
+    )
+
+    # Define the new execution order (Pipeline Flow)
+    task_check_file >> task_upload_s3 >> task_transform_silver

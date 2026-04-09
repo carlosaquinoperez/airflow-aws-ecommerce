@@ -4,6 +4,7 @@ from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
 from pyspark.sql.functions import col, to_timestamp
+from delta.tables import DeltaTable
 
 # 1. Initialization and Parameter parsing
 args = getResolvedOptions(sys.argv, ['JOB_NAME', 'BRONZE_BUCKET', 'SILVER_BUCKET'])
@@ -33,11 +34,27 @@ clean_df = raw_df.dropna(subset=["order_id", "customer_id"]) \
                  .withColumn("order_purchase_timestamp", to_timestamp(col("order_purchase_timestamp"))) \
                  .withColumn("order_delivered_customer_date", to_timestamp(col("order_delivered_customer_date")))
 
-# 4. Load: Write to the Silver layer in Parquet format
-# Overwrite mode is used here to maintain idempotency in the staging layer
-clean_df.write.mode("overwrite") \
-              .parquet(silver_path)
+# 4. Load: Write to the Silver layer in Delta format (Upsert/Merge)
+# ------------------------------------------------------------------------------
+# 4.1. If it's the first run and the table DOES NOT exist, create it in Delta format
+if not DeltaTable.isDeltaTable(spark, silver_path):
+    print("Creating Delta table for the first time...")
+    clean_df.write.format("delta").save(silver_path)
 
-print("Data transformation and load to Silver layer completed successfully.")
+# 4.2. If the table ALREADY exists, perform a transactional MERGE
+else:
+    print("Performing incremental MERGE with new data...")
+    delta_table = DeltaTable.forPath(spark, silver_path)
+    
+    delta_table.alias("historical_table") \
+        .merge(
+            clean_df.alias("new_daily_data"),
+            "historical_table.order_id = new_daily_data.order_id" # The Key Column
+        ) \
+        .whenMatchedUpdateAll() \
+        .whenNotMatchedInsertAll() \
+        .execute()
+
+print("Data transformation and Delta MERGE completed successfully.")
 
 job.commit()
