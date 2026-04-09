@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.amazon.aws.operators.glue import GlueJobOperator
+from airflow.providers.amazon.aws.operators.glue_crawler import GlueCrawlerOperator
 
 # ------------------------------------------------------------------------------
 # CONFIGURATION
@@ -65,7 +66,7 @@ with DAG(
         python_callable=upload_to_s3
     )
 
-    # NEW TASK: Trigger the AWS Glue Job
+    # Trigger the AWS Glue Job
     task_transform_silver = GlueJobOperator(
         task_id='transform_bronze_to_silver_parquet',
         job_name='ecommerce_bronze_to_silver_job',
@@ -76,5 +77,12 @@ with DAG(
         iam_role_name='ecommerce_glue_role_allowing-amoeba' 
     )
 
+    # Trigger the Crawler to update the Catalog
+    task_run_crawler = GlueCrawlerOperator(
+        task_id='run_glue_crawler',
+        config={'Name': 'ecommerce_silver_crawler'},
+        region_name='us-east-1'
+    )
+
     # Define the new execution order (Pipeline Flow)
-    task_check_file >> task_upload_s3 >> task_transform_silver
+    task_check_file >> task_upload_s3 >> task_transform_silver >> task_run_crawler
