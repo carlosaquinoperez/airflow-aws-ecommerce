@@ -61,3 +61,34 @@ resource "aws_glue_job" "bronze_to_silver" {
   worker_type       = "G.1X"
   number_of_workers = 2 # Using 2 nodes for fast distributed processing
 }
+
+# Upload Gold Script to S3
+resource "aws_s3_object" "gold_pyspark_script" {
+  bucket = aws_s3_bucket.bronze.bucket
+  key    = "scripts/create_gold_metrics.py"
+  source = "../scripts/create_gold_metrics.py"
+  etag   = filemd5("../scripts/create_gold_metrics.py")
+}
+
+# AWS Glue Job: Silver to Gold (Metrics)
+resource "aws_glue_job" "silver_to_gold" {
+  name     = "ecommerce_silver_to_gold_job"
+  role_arn = aws_iam_role.glue_role.arn
+
+  command {
+    name            = "glueetl"
+    script_location = "s3://${aws_s3_bucket.bronze.bucket}/scripts/create_gold_metrics.py"
+    python_version  = "3"
+  }
+
+  default_arguments = {
+    "--SILVER_BUCKET"    = aws_s3_bucket.silver.bucket
+    "--GOLD_BUCKET"      = aws_s3_bucket.gold.bucket
+    "--datalake-formats" = "delta"
+    "--conf"             = "spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension --conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog"
+  }
+
+  glue_version      = "4.0"
+  worker_type       = "G.1X"
+  number_of_workers = 2
+}

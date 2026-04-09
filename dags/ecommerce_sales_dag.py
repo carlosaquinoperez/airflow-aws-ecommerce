@@ -77,5 +77,14 @@ with DAG(
         iam_role_name='ecommerce_glue_role_allowing-amoeba' 
     )
 
-    # Define the new execution order (Pipeline Flow)
-    task_check_file >> task_upload_s3 >> task_transform_silver
+    # Trigger the Gold Aggregation Job
+    task_transform_gold = GlueJobOperator(
+        task_id='calculate_gold_metrics',
+        job_name='ecommerce_silver_to_gold_job',
+        wait_for_completion=True, 
+        region_name='us-east-1',
+        iam_role_name='ecommerce_glue_role_allowing-amoeba' 
+    )
+
+    # Define the execution order (Pipeline Flow)
+    task_check_file >> task_upload_s3 >> task_transform_silver >> task_transform_gold

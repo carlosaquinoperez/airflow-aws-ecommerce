@@ -186,6 +186,20 @@ Access the Airflow UI at **http://localhost:8080** (or the forwarded port in Cod
 
 ---
 
+### Step 5: Data Catalog & Querying (Amazon Athena)
+
+Once the pipeline successfully processes the data into the Silver layer (Delta Lake format), you need to register it in the AWS Glue Data Catalog to enable SQL querying. 
+*Note: This is a one-time foundational step. Thanks to Delta Lake's native Schema Evolution, future column additions will be handled automatically without needing to rerun this DDL.*
+
+1. Navigate to **Amazon Athena** in the AWS Console.
+2. Select the `ecommerce_db` database.
+3. Execute the following native DDL command to register the Delta table:
+
+   ```sql
+   CREATE EXTERNAL TABLE IF NOT EXISTS ecommerce_db.silver_orders
+   LOCATION 's3://YOUR_SILVER_BUCKET_NAME/cleaned/orders/'
+   TBLPROPERTIES ('table_type'='DELTA');
+
 ## 🔄 Pipeline Flow
 
 ```
