@@ -31,6 +31,7 @@ raw_df = spark.read.option("header", "true") \
 # - Drop rows where critical fields (like order_id) are null
 # - Cast string timestamps to actual Timestamp types for analytical querying
 clean_df = raw_df.dropna(subset=["order_id", "customer_id"]) \
+                 .dropDuplicates(["order_id"]) \
                  .withColumn("order_purchase_timestamp", to_timestamp(col("order_purchase_timestamp"))) \
                  .withColumn("order_delivered_customer_date", to_timestamp(col("order_delivered_customer_date")))
 
