@@ -77,12 +77,5 @@ with DAG(
         iam_role_name='ecommerce_glue_role_allowing-amoeba' 
     )
 
-    # Trigger the Crawler to update the Catalog
-    task_run_crawler = GlueCrawlerOperator(
-        task_id='run_glue_crawler',
-        config={'Name': 'ecommerce_silver_crawler'},
-        region_name='us-east-1'
-    )
-
     # Define the new execution order (Pipeline Flow)
-    task_check_file >> task_upload_s3 >> task_transform_silver >> task_run_crawler
+    task_check_file >> task_upload_s3 >> task_transform_silver
